@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Transcription & Summary</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Add your CSS here (see below) */
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <nav class="fixed top-0 left-0 right-0 bg-transparent backdrop-filter backdrop-blur-lg py-4 flex justify-between items-center px-8 shadow-lg">
+        <div class="text-gray-900 text-xl font-bold">
+            Video Transcription
+        </div>
+        <div class="text-gray-900 relative">
+            <span id="current-time" class="text-sm"></span>
+        </div>
+    </nav>
+    
+    <div class="max-w-4xl mx-auto space-y-8 mt-16">
+        <div class="text-center">
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">Video Transcription & Summary</h1>
+            <p class="text-gray-700">Enter a YouTube URL or upload a video file to get started</p>
+        </div>
+
+        <div class="bg-white/50 backdrop-blur-lg border border-gray-300 rounded-lg p-6 shadow-md">
+            <h2 class="text-gray-900 text-2xl font-semibold mb-2">Process Video</h2>
+            <p class="text-gray-600 mb-4">We'll transcribe and summarize your video content</p>
+            <form method="POST" class="space-y-4">
+                <div class="flex gap-4 mb-4">
+                    <input type="text" name="video_url" class="flex-1 p-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400" placeholder="Enter YouTube URL">
+                    <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium">Process Video</button>
+                </div>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <p class="text-gray-600 mb-2">Upload Video File</p>
+                    <input type="file" name="video_file" accept="video/*" class="hidden">
+                    <label class="relative cursor-pointer bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded-lg font-medium text-white">
+                        <span>Choose File</span>
+                    </label>
+                </div>
+            </form>
+
+            <!-- Error Display -->
+            {% if error %}
+            <div class="bg-red-200 border border-red-500 p-4 rounded-lg mt-4">
+                <p class="text-red-800">{{ error }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Results Display -->
+            {% if transcription %}
+            <div class="bg-gray-100 p-4 rounded-lg mt-4 text-gray-800">
+                <h3 class="text-lg font-bold">Transcription</h3>
+                <p>{{ transcription }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Summary Display -->
+            {% if summary %}
+            <div class="bg-gray-50 p-4 rounded-lg mt-4 text-gray-800">
+                <h3 class="text-lg font-bold">Summary</h3>
+                <p>{{ summary }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // JavaScript to update current time
+        function updateTime() {
+            const now = new Date();
+            const options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            const timeString = now.toLocaleTimeString([], options);
+            document.getElementById('current-time').innerText = timeString;
+        }
+
+        // Update time every second
+        setInterval(updateTime, 1000);
+        updateTime(); // Initial call to set time immediately
+    </script>
+</body>
+</html>
