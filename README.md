@@ -16,7 +16,7 @@ YouTube Transcript Summarizer is a Flask web application that allows users to in
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/youtube-transcript-summarizer.git
+   git clone https://github.com/sukritvemula/HTF24-Team-215.git
    cd youtube-transcript-summarizer
    ```
 
