@@ -1,7 +1,4 @@
-Sure! Here's the complete content for your `README.md` file with proper Markdown formatting:
-
-```markdown
-# YouTube Transcript Summarizer
+# YouTube Transcript Summarizer HTF24-Team-215
 
 ## Description
 YouTube Transcript Summarizer is a Flask web application that allows users to input a YouTube video URL and receive a summarized version of its transcript. The application utilizes the YouTube Transcript API to fetch video captions and employs the Hugging Face Transformers library for summarization. This tool is especially useful for quickly understanding video content without watching the entire video.
@@ -84,7 +81,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [YouTube Transcript API](https://github.com/jdepoix/youtube-transcript-api)
 - [Hugging Face Transformers](https://huggingface.co/transformers/)
 - [NLTK](https://www.nltk.org/)
-```
 
 ### Instructions for Use:
 1. Copy the entire content above.
