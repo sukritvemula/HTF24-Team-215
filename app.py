@@ -1,88 +1,90 @@
 from flask import Flask, request, render_template
-import os
-import yt_dlp
-import ffmpeg
-import assemblyai as aai
-import requests
-import re
 from youtube_transcript_api import YouTubeTranscriptApi
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
+import nltk
+from nltk.corpus import stopwords
+import re
+import logging
+from flask_cors import CORS
+from transformers import pipeline
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
+CORS(app)
 
-aai.settings.api_key = "6d4bce6db0d44a6ba2e1ba8a4a4c34c1"
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model_name = "csebuetnlp/mT5_multilingual_XLSum"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+# NLTK downloads
+nltk.download('punkt')
+nltk.download('stopwords')
 
-WHITESPACE_HANDLER = lambda k: re.sub(r'\s+', ' ', re.sub(r'\n+', ' ', k.strip()))
+# Initialize the summarization pipeline
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 
-def download_video(video_url):
-    ydl_opts = {
-        'format': 'best',
-        'outtmpl': 'video.mp4',
-        'nopostoverwrites': True,
-    }
-
-    if os.path.exists('video.mp4'):
-        os.remove('video.mp4')
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
+# Initialize ThreadPoolExecutor
+executor = ThreadPoolExecutor(max_workers=4)  # You can adjust the number of workers
 
 def scrape_youtube_captions(video_url):
     try:
-        video_id = video_url.split('v=')[-1]
+        video_id = video_url.split('v=')[-1].split('&')[0]
         transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
         return " ".join([segment['text'] for segment in transcript])
     except Exception as e:
-        print(f"Error fetching captions: {e}")
+        app.logger.error(f"Error fetching captions: {e}")
         return None
 
-def convert_video_to_audio(video_file, audio_file):
-    if os.path.exists(audio_file):
-        os.remove(audio_file)
+def clean_transcription(transcription):
+    """Clean the transcription text."""
+    transcription = re.sub(r'\[.*?\]', '', transcription)
+    transcription = re.sub(r'\s+', ' ', transcription)
+    return transcription.strip()
 
-    ffmpeg.input(video_file).output(audio_file).overwrite_output().run()
-
-def transcribe_audio(audio_file):
-    transcript = aai.Transcriber().transcribe(audio_file)
-    return transcript.text if transcript.status != aai.TranscriptStatus.error else transcript.error
-
-def chunk_text(text, chunk_size=1024):
-    return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+def chunk_text(text, max_chunk_size=1024):
+    """Split text into chunks that fit within model's max token limit."""
+    words = text.split()
+    chunks = []
+    current_chunk = []
+    current_size = 0
+    
+    for word in words:
+        if current_size + len(word) + 1 > max_chunk_size:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = [word]
+            current_size = len(word)
+        else:
+            current_chunk.append(word)
+            current_size += len(word) + 1
+            
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+    
+    return chunks
 
 def summarize_text(text):
-    text_chunks = chunk_text(WHITESPACE_HANDLER(text), 1024)
+    """Summarize text using Hugging Face transformers."""
+    try:
+        # Clean the text first
+        cleaned_text = clean_transcription(text)
+        
+        # Split into chunks if text is too long
+        chunks = chunk_text(cleaned_text)
+        summaries = []
+        
+        for chunk in chunks:
+            # Generate summary for each chunk
+            summary = summarizer(chunk, max_length=130, min_length=30, do_sample=False)
+            summaries.append(summary[0]['summary_text'])
+        
+        # Combine all summaries
+        final_summary = " ".join(summaries)
+        return final_summary
+    except Exception as e:
+        app.logger.error(f"Error in summarization: {e}")
+        return "Error generating summary. Please try again."
 
-    summaries = []
-    for chunk in text_chunks:
-        input_ids = tokenizer(
-            [chunk],
-            return_tensors="pt",
-            padding="max_length",
-            truncation=True,
-        ).to(device)["input_ids"]
-
-        output_ids = model.generate(
-            input_ids=input_ids,
-            max_length=150,
-            no_repeat_ngram_size=2,
-            num_beams=4,
-            length_penalty=1.0,
-        )[0]
-
-        summary = tokenizer.decode(
-            output_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False
-        )
-        summaries.append(summary)
-
-    return " ".join(summaries)
+def fetch_transcription(video_url):
+    """Fetch the transcription in a separate thread."""
+    return scrape_youtube_captions(video_url)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -91,31 +93,17 @@ def index():
     error = None
 
     if request.method == 'POST':
-        if 'video_url' in request.form:
-            video_url = request.form['video_url']
-            transcription = scrape_youtube_captions(video_url)
+        video_url = request.form.get('video_url')
+        if video_url:
+            app.logger.debug("Video URL received: %s", video_url)
+            # Use multi-threading to fetch transcription
+            future = executor.submit(fetch_transcription, video_url)
+            transcription = future.result()  # Wait for the result
 
             if not transcription:
-                download_video(video_url)
-                audio_file_path = 'audio.wav'
-                convert_video_to_audio('video.mp4', audio_file_path)
-                transcription = transcribe_audio(audio_file_path)
-
-            if transcription:
-                summary = summarize_text(transcription)
+                error = "No transcript available. The video may not have captions."
             else:
-                error = "Transcription failed. Please try again."
-
-        elif 'video_file' in request.files:
-            video_file = request.files['video_file']
-            video_file.save('uploaded_video.mp4')
-            audio_file_path = 'audio.wav'
-            convert_video_to_audio('uploaded_video.mp4', audio_file_path)
-            transcription = transcribe_audio(audio_file_path)
-            if transcription is not None:
                 summary = summarize_text(transcription)
-            else:
-                error = "Transcription failed. Please try again."
 
     return render_template('index.html', transcription=transcription, summary=summary, error=error)
 
