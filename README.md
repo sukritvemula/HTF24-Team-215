@@ -81,9 +81,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [YouTube Transcript API](https://github.com/jdepoix/youtube-transcript-api)
 - [Hugging Face Transformers](https://huggingface.co/transformers/)
 - [NLTK](https://www.nltk.org/)
-
-### Instructions for Use:
-1. Copy the entire content above.
-2. Create a new file in the root directory of your project named `README.md`.
-3. Paste the copied content into the `README.md` file.
-4. Replace `yourusername` in the clone command with your actual GitHub username or the appropriate URL for your repository.
